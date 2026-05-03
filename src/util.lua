@@ -18,3 +18,11 @@ function isDoneSpawningOrLoading(objects)
         return check
     end
 end
+
+function concatTables(out, tbl)
+    local c = #out + 1
+    for _, v in ipairs(tbl) do
+        out[c] = v
+        c = c + 1
+    end
+end

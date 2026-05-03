@@ -1,4 +1,5 @@
 require("tts-sts-homebrew-loader/src/sts-mod-loans")
+require("tts-sts-homebrew-loader/src/clean-up-characters")
 require("tts-sts-homebrew-loader/src/util")
 
 -- custom_char_SETUP_BOARD --
@@ -27,39 +28,40 @@ function setupWrapper(obj, color, alt_click)
     getObjectsAsync(setup, {color})
 end
 
+function getHomebrewBag(obj)
+    local top_obj_guid = getObjectGUIDOnTop(obj);
+    return getObjectFromGUID(top_obj_guid);
+end
+
+function getGameObject(color, type)
+    local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
+    local CHARACTER_INFO = Global.getVar("CHARACTER_INFO")
+    return getObjectFromGUID(CHARACTER_INFO[PLAYER_TO_CHARACTER[color]][type])
+end
+
+function getNameOfReplacedCharacter(color)
+    local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
+    return PLAYER_TO_CHARACTER[color]
+end
+
 function setup(obj, args)
+    log("TEST")
     -- input arg, color is the player who clicks the button, I call them the "Active Player" from here on
     local color = args[1]
 
     -- Detect custom_char bag on top
-    local top_obj_guid = getObjectGUIDOnTop(obj);
-    local top_obj = getObjectFromGUID(top_obj_guid);
-
-    -- Get the bag object
-    local custom_char_bag = top_obj
+    local custom_char_bag = getHomebrewBag(obj)
 
     -- Get a list of all the stuff in the bag
     local custom_char_objs = custom_char_bag.getObjects()
-    for i = 1, #custom_char_objs do
+    --[[for i = 1, #custom_char_objs do
         print(custom_char_objs[i].guid)
         log(custom_char_objs[i])
-    end
-    return
-end
-
-function continueSetup(color, custom_char_bag, custom_char_objs)
-
-    -- Pull information about the character-player asignments
-    local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
-    local CHARACTER_INFO = Global.getVar("CHARACTER_INFO")
-
-    -- Store the character the Active player has
-    -- We will swap away all their stuff and replace it with custom_char things
-    local player_curr_char = PLAYER_TO_CHARACTER[color]
+    end--]]
 
     -- Get Board and Bag objects
-    local player_curr_board = getObjectFromGUID(CHARACTER_INFO[PLAYER_TO_CHARACTER[color]]["Board"])
-    local player_curr_bag = getObjectFromGUID(CHARACTER_INFO[PLAYER_TO_CHARACTER[color]]["Bag"])
+    local player_curr_board = getGameObject(color, "Board")
+    local player_curr_bag = getGameObject(color, "Bag")
     local CHARACTER_NAME = player_curr_board.getVar("CHARACTER_NAME")
 
     -- Get Standee, Playmat
@@ -79,45 +81,9 @@ function continueSetup(color, custom_char_bag, custom_char_objs)
     local standee_rot = player_curr_standee.getRotation()
 
     -- Clean up extra tokens and stuff depending on who the Active player's character is
-    if player_curr_char == "Silent" then
-        local dagger_guids = player_curr_board.getVar("DAGGER_GUIDS")
-        for i = 1, #dagger_guids do
-            player_curr_bag.putObject(getObjectFromGUID(dagger_guids[i]))
-        end
-        local decay_guids = player_curr_board.getVar("DECAY_GUIDS")
-        local decay_single_guids = decay_guids["Single"]["Tokens"]
-        for i = 1, #decay_single_guids do
-            player_curr_bag.putObject(getObjectFromGUID(decay_single_guids[i]))
-        end
-        local decay_five_guids = decay_guids["Five"]["Tokens"]
-        player_curr_bag.putObject(getObjectFromGUID(decay_five_guids[1]))
-        local decay_ten_guids = decay_guids["Ten"]["Tokens"]
-        player_curr_bag.putObject(getObjectFromGUID(decay_ten_guids[1]))
-    end
-
-    if player_curr_char == "Defect" then
-        local elemental_cube_guid = player_curr_board.getVar("ELEMENTAL_CUBE_GUID")
-        player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guid))
-        local elemental_cube_guids = player_curr_board.getVar("ELEMENTAL_CUBE_GUIDS")
-        for i = 1, #elemental_cube_guids["Dark"] do
-            player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guids["Dark"][i]))
-        end
-        for i = 1, #elemental_cube_guids["Frost"] do
-            player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guids["Frost"][i]))
-        end
-        for i = 1, #elemental_cube_guids["Lightning"] do
-            player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guids["Lightning"][i]))
-        end
-    end
-
-    if player_curr_char == "Watcher" then
-        local align_cube_guid = player_curr_board.getVar("ALIGNMENT_CUBE_GUID")
-        player_curr_bag.putObject(getObjectFromGUID(align_cube_guid))
-        local miracle_guids = player_curr_board.getVar("MIRACLE_GUIDS")
-        for i = 1, #miracle_guids do
-            player_curr_bag.putObject(getObjectFromGUID(miracle_guids[i]))
-        end
-    end
+    local replaced_character = getNameOfReplacedCharacter(color)
+    log("Replacing " .. replaced_character .. " for " .. CHARACTER_NAME)
+    cleanUpCharacter(color)
 
     -- Replace playmat, board, standee
     player_curr_bag.putObject(player_curr_playmat)
