@@ -1,4 +1,5 @@
 require("tts-sts-homebrew-loader/src/sts-mod-loans")
+require("tts-sts-homebrew-loader/src/util")
 
 -- custom_char_SETUP_BOARD --
 function onLoad()
@@ -39,9 +40,14 @@ function setup(obj, args)
 
     -- Get a list of all the stuff in the bag
     local custom_char_objs = custom_char_bag.getObjects()
-    --[[for i = 1, #custom_char_objs do
+    for i = 1, #custom_char_objs do
         print(custom_char_objs[i].guid)
-    end--]]
+        log(custom_char_objs[i])
+    end
+    return
+end
+
+function continueSetup(color, custom_char_bag, custom_char_objs)
 
     -- Pull information about the character-player asignments
     local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
@@ -251,7 +257,12 @@ function setup(obj, args)
         rotation = starter_rot
     })
 
-    local function callback_rare_deck()
+    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
+    local awaited_decks = {
+        custom_char_rare_deck, 
+        custom_char_rare_deck_upg
+    }
+    whenReady(awaited_decks, function()
         assocUpgrades(custom_char_rare_deck, custom_char_rare_deck_upg)
         custom_char_rare_deck.flip()
         custom_char_rare_deck_upg.flip()
@@ -260,12 +271,6 @@ function setup(obj, args)
         custom_char_rare_deck.setRotation(rare_rot)
         custom_char_rare_deck_upg.setPosition(upg_pos)
         custom_char_rare_deck_upg.setRotation(upg_rot)
-    end
-
-    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
-    Wait.condition(callback_rare_deck, function()
-        return (not custom_char_rare_deck.spawning and not custom_char_rare_deck.loading_custom) 
-            and (not custom_char_rare_deck_upg.spawning and not custom_char_rare_deck_upg.loading_custom)
     end)
 
     -- Reward deck --------------------------------------
@@ -280,7 +285,12 @@ function setup(obj, args)
         rotation = starter_rot
     })
 
-    local function callback_reward_deck()
+    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
+    local awaited_decks = {
+        custom_char_reward_deck, 
+        custom_char_reward_deck_upg
+    }
+    whenReady(awaited_decks, function()
         assocUpgrades(custom_char_reward_deck, custom_char_reward_deck_upg)
         custom_char_reward_deck.flip()
         custom_char_reward_deck_upg.flip()
@@ -289,13 +299,6 @@ function setup(obj, args)
         custom_char_reward_deck.setRotation(reward_rot)
         custom_char_reward_deck_upg.setPosition(upg_pos)
         custom_char_reward_deck_upg.setRotation(upg_rot)
-            
-    end
-
-    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
-    Wait.condition(callback_reward_deck, function()
-        return (not custom_char_reward_deck.spawning and not custom_char_reward_deck.loading_custom) 
-            and (not custom_char_reward_deck_upg.spawning and not custom_char_reward_deck_upg.loading_custom)
     end)
 
     -- Starter deck --------------------------------------
@@ -310,21 +313,19 @@ function setup(obj, args)
         rotation = starter_rot
     })
 
-    local function callback_starter_deck()
+    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
+    local awaited_decks = {
+        custom_char_starter_deck, 
+        custom_char_starter_deck_upg, 
+    }
+    whenReady(awaited_decks, function()
         assocUpgrades(custom_char_starter_deck, custom_char_starter_deck_upg)
         custom_char_starter_deck.flip()
         custom_char_starter_deck_upg.flip()
         custom_char_starter_deck.setPosition(starter_pos)
         custom_char_starter_deck.setRotation(starter_rot)
         custom_char_starter_deck_upg.setPosition(upg_pos)
-        custom_char_starter_deck_upg.setRotation(upg_rot)
-            
-    end
-
-    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
-    Wait.condition(callback_starter_deck, function()
-        return (not custom_char_starter_deck.spawning and not custom_char_starter_deck.loading_custom) 
-            and (not custom_char_starter_deck_upg.spawning and not custom_char_starter_deck_upg.loading_custom)
+        custom_char_starter_deck_upg.setRotation(upg_rot)     
     end)
 
     -- Make the bag and setup boards remove themselves
