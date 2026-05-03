@@ -45,7 +45,6 @@ function getNameOfReplacedCharacter(color)
 end
 
 function setup(obj, args)
-    log("TEST")
     -- input arg, color is the player who clicks the button, I call them the "Active Player" from here on
     local color = args[1]
 
@@ -82,7 +81,6 @@ function setup(obj, args)
 
     -- Clean up extra tokens and stuff depending on who the Active player's character is
     local replaced_character = getNameOfReplacedCharacter(color)
-    log("Replacing " .. replaced_character .. " for " .. CHARACTER_NAME)
     cleanUpCharacter(color)
 
     -- Replace playmat, board, standee
