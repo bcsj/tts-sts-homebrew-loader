@@ -1,3 +1,7 @@
+require("tts-sts-homebrew-loader/src/sts-mod-loans")
+require("tts-sts-homebrew-loader/src/clean-up-characters")
+require("tts-sts-homebrew-loader/src/util")
+
 -- custom_char_SETUP_BOARD --
 function onLoad()
     createButtons()
@@ -24,34 +28,39 @@ function setupWrapper(obj, color, alt_click)
     getObjectsAsync(setup, {color})
 end
 
+function getHomebrewBag(obj)
+    local top_obj_guid = getObjectGUIDOnTop(obj);
+    return getObjectFromGUID(top_obj_guid);
+end
+
+function getGameObject(color, type)
+    local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
+    local CHARACTER_INFO = Global.getVar("CHARACTER_INFO")
+    return getObjectFromGUID(CHARACTER_INFO[PLAYER_TO_CHARACTER[color]][type])
+end
+
+function getNameOfReplacedCharacter(color)
+    local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
+    return PLAYER_TO_CHARACTER[color]
+end
+
 function setup(obj, args)
     -- input arg, color is the player who clicks the button, I call them the "Active Player" from here on
     local color = args[1]
 
     -- Detect custom_char bag on top
-    local top_obj_guid = getObjectGUIDOnTop(obj);
-    local top_obj = getObjectFromGUID(top_obj_guid);
-
-    -- Get the bag object
-    local custom_char_bag = top_obj
+    local custom_char_bag = getHomebrewBag(obj)
 
     -- Get a list of all the stuff in the bag
     local custom_char_objs = custom_char_bag.getObjects()
     --[[for i = 1, #custom_char_objs do
         print(custom_char_objs[i].guid)
+        log(custom_char_objs[i])
     end--]]
 
-    -- Pull information about the character-player asignments
-    local PLAYER_TO_CHARACTER = Global.getVar("PLAYER_TO_CHARACTER")
-    local CHARACTER_INFO = Global.getVar("CHARACTER_INFO")
-
-    -- Store the character the Active player has
-    -- We will swap away all their stuff and replace it with custom_char things
-    local player_curr_char = PLAYER_TO_CHARACTER[color]
-
     -- Get Board and Bag objects
-    local player_curr_board = getObjectFromGUID(CHARACTER_INFO[PLAYER_TO_CHARACTER[color]]["Board"])
-    local player_curr_bag = getObjectFromGUID(CHARACTER_INFO[PLAYER_TO_CHARACTER[color]]["Bag"])
+    local player_curr_board = getGameObject(color, "Board")
+    local player_curr_bag = getGameObject(color, "Bag")
     local CHARACTER_NAME = player_curr_board.getVar("CHARACTER_NAME")
 
     -- Get Standee, Playmat
@@ -71,45 +80,8 @@ function setup(obj, args)
     local standee_rot = player_curr_standee.getRotation()
 
     -- Clean up extra tokens and stuff depending on who the Active player's character is
-    if player_curr_char == "Silent" then
-        local dagger_guids = player_curr_board.getVar("DAGGER_GUIDS")
-        for i = 1, #dagger_guids do
-            player_curr_bag.putObject(getObjectFromGUID(dagger_guids[i]))
-        end
-        local decay_guids = player_curr_board.getVar("DECAY_GUIDS")
-        local decay_single_guids = decay_guids["Single"]["Tokens"]
-        for i = 1, #decay_single_guids do
-            player_curr_bag.putObject(getObjectFromGUID(decay_single_guids[i]))
-        end
-        local decay_five_guids = decay_guids["Five"]["Tokens"]
-        player_curr_bag.putObject(getObjectFromGUID(decay_five_guids[1]))
-        local decay_ten_guids = decay_guids["Ten"]["Tokens"]
-        player_curr_bag.putObject(getObjectFromGUID(decay_ten_guids[1]))
-    end
-
-    if player_curr_char == "Defect" then
-        local elemental_cube_guid = player_curr_board.getVar("ELEMENTAL_CUBE_GUID")
-        player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guid))
-        local elemental_cube_guids = player_curr_board.getVar("ELEMENTAL_CUBE_GUIDS")
-        for i = 1, #elemental_cube_guids["Dark"] do
-            player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guids["Dark"][i]))
-        end
-        for i = 1, #elemental_cube_guids["Frost"] do
-            player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guids["Frost"][i]))
-        end
-        for i = 1, #elemental_cube_guids["Lightning"] do
-            player_curr_bag.putObject(getObjectFromGUID(elemental_cube_guids["Lightning"][i]))
-        end
-    end
-
-    if player_curr_char == "Watcher" then
-        local align_cube_guid = player_curr_board.getVar("ALIGNMENT_CUBE_GUID")
-        player_curr_bag.putObject(getObjectFromGUID(align_cube_guid))
-        local miracle_guids = player_curr_board.getVar("MIRACLE_GUIDS")
-        for i = 1, #miracle_guids do
-            player_curr_bag.putObject(getObjectFromGUID(miracle_guids[i]))
-        end
-    end
+    local replaced_character = getNameOfReplacedCharacter(color)
+    cleanUpCharacter(color)
 
     -- Replace playmat, board, standee
     player_curr_bag.putObject(player_curr_playmat)
@@ -249,7 +221,12 @@ function setup(obj, args)
         rotation = starter_rot
     })
 
-    local function callback_rare_deck()
+    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
+    local awaited_decks = {
+        custom_char_rare_deck, 
+        custom_char_rare_deck_upg
+    }
+    whenReady(awaited_decks, function()
         assocUpgrades(custom_char_rare_deck, custom_char_rare_deck_upg)
         custom_char_rare_deck.flip()
         custom_char_rare_deck_upg.flip()
@@ -258,12 +235,6 @@ function setup(obj, args)
         custom_char_rare_deck.setRotation(rare_rot)
         custom_char_rare_deck_upg.setPosition(upg_pos)
         custom_char_rare_deck_upg.setRotation(upg_rot)
-    end
-
-    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
-    Wait.condition(callback_rare_deck, function()
-        return (not custom_char_rare_deck.spawning and not custom_char_rare_deck.loading_custom) 
-            and (not custom_char_rare_deck_upg.spawning and not custom_char_rare_deck_upg.loading_custom)
     end)
 
     -- Reward deck --------------------------------------
@@ -278,7 +249,12 @@ function setup(obj, args)
         rotation = starter_rot
     })
 
-    local function callback_reward_deck()
+    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
+    local awaited_decks = {
+        custom_char_reward_deck, 
+        custom_char_reward_deck_upg
+    }
+    whenReady(awaited_decks, function()
         assocUpgrades(custom_char_reward_deck, custom_char_reward_deck_upg)
         custom_char_reward_deck.flip()
         custom_char_reward_deck_upg.flip()
@@ -287,13 +263,6 @@ function setup(obj, args)
         custom_char_reward_deck.setRotation(reward_rot)
         custom_char_reward_deck_upg.setPosition(upg_pos)
         custom_char_reward_deck_upg.setRotation(upg_rot)
-            
-    end
-
-    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
-    Wait.condition(callback_reward_deck, function()
-        return (not custom_char_reward_deck.spawning and not custom_char_reward_deck.loading_custom) 
-            and (not custom_char_reward_deck_upg.spawning and not custom_char_reward_deck_upg.loading_custom)
     end)
 
     -- Starter deck --------------------------------------
@@ -308,21 +277,19 @@ function setup(obj, args)
         rotation = starter_rot
     })
 
-    local function callback_starter_deck()
+    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
+    local awaited_decks = {
+        custom_char_starter_deck, 
+        custom_char_starter_deck_upg, 
+    }
+    whenReady(awaited_decks, function()
         assocUpgrades(custom_char_starter_deck, custom_char_starter_deck_upg)
         custom_char_starter_deck.flip()
         custom_char_starter_deck_upg.flip()
         custom_char_starter_deck.setPosition(starter_pos)
         custom_char_starter_deck.setRotation(starter_rot)
         custom_char_starter_deck_upg.setPosition(upg_pos)
-        custom_char_starter_deck_upg.setRotation(upg_rot)
-            
-    end
-
-    -- Wait for the decks to both be loaded, then run the above callback to associate cards with their upgrades
-    Wait.condition(callback_starter_deck, function()
-        return (not custom_char_starter_deck.spawning and not custom_char_starter_deck.loading_custom) 
-            and (not custom_char_starter_deck_upg.spawning and not custom_char_starter_deck_upg.loading_custom)
+        custom_char_starter_deck_upg.setRotation(upg_rot)     
     end)
 
     -- Make the bag and setup boards remove themselves
@@ -331,7 +298,7 @@ function setup(obj, args)
 
 end
 
--- Uppgrade association wrapper
+-- Upgrade association wrapper
 function assocUpgrades(deck, deck_upg)
     local cards = deck.getObjects()
     local cards_upg = deck_upg.getObjects()
@@ -339,135 +306,4 @@ function assocUpgrades(deck, deck_upg)
     for i = 1, #cards do
         StoreCardAssociation(cards[i].guid, deck.getGUID(), cards_upg[i].guid, deck_upg.getGUID())
     end
-end
-
---[[ Doesn't work
-function fixDeckGUID(deck)
-    local contents = deck.getObjects()    
-    local clone = deck.clone({
-        position = {
-            deck.getPosition()[1],
-            2*deck.getPosition()[2],
-            deck.getPosition()[3]
-        }
-    })
-    clone.setLock(true)
-
-    local objs = {}
-    for i, _ in ipairs(contents) do
-        local obj = clone.takeObject({
-            index = #(clone.getObjects())-1,
-            position = {
-                clone.getPosition()[1],
-                2*clone.getPosition()[2] + i/#contents,
-                clone.getPosition()[3]
-            },
-            smooth = false
-        })
-        table.insert(objs, obj)
-    end
-    
-    for i, _ in ipairs(contents) do
-        local obj = objs[i]
-        deck.putObject(obj)
-        obj.destruct()
-        obj = deck.takeObject({
-            index = i,
-            position = {
-                clone.getPosition()[1],
-                2*clone.getPosition()[2],
-                clone.getPosition()[3]
-            },
-            smooth = false
-        })
-        obj.destruct()
-    end        
-end 
---]]
-
--- ############################################################################################
--- Shamelessly taken and adapted from the StS mod script
--- ############################################################################################
--- I got this function from the StS mod, but had to manually pull the global 
--- variable with the card upgrade information, modify it and then put it back updated.
-function StoreCardAssociation(baseCardGuid, baseDeckGuid, upgradeCardGuid, upgradeDeckGuid)
-    local CARD_UPGRADE_INFO = Global.getTable("CARD_UPGRADE_INFO")
-    CARD_UPGRADE_INFO[baseCardGuid] = {}
-    CARD_UPGRADE_INFO[baseCardGuid]["Related_Card"] = upgradeCardGuid
-    CARD_UPGRADE_INFO[baseCardGuid]["Source_Deck"] = baseDeckGuid
-    CARD_UPGRADE_INFO[baseCardGuid]["Card_Type"] = "Base"
-
-    CARD_UPGRADE_INFO[upgradeCardGuid] = {}
-    CARD_UPGRADE_INFO[upgradeCardGuid]["Related_Card"] = baseCardGuid
-    CARD_UPGRADE_INFO[upgradeCardGuid]["Source_Deck"] = upgradeDeckGuid
-    CARD_UPGRADE_INFO[upgradeCardGuid]["Card_Type"] = "Upgrade"
-    Global.setTable("CARD_UPGRADE_INFO", CARD_UPGRADE_INFO)
-end
-
--- Retrieves objects on the tool and calls the associated callback with the results. Does this by spawning a temporary scripting zone on each area and getting objects
-function getObjectsAsync(callback_function, callback_func_args)
-    -- Internal coroutine
-    function setupScriptingZonesInternal()
-        local object_scale = self.getScale()
-        local expected_scale = {0.22, 0.22, 0.22}
-        local base_scale = {2.46, 2, 3.38}
-        local scale_factor = {object_scale[1] / expected_scale[1], object_scale[2] / expected_scale[2], object_scale[3] / expected_scale[3]}
-        local target_scale = {scale_factor[1] * base_scale[1], scale_factor[2] * base_scale[2], scale_factor[3] * base_scale[3]}
-
-        local zone = createScriptingZone(getSlotPosition(), self.getRotation(), target_scale)
-
-        callback_function(zone.getObjects(), callback_func_args)
-
-        zone.destruct()
-        return 1
-    end
-
-    startLuaCoroutine(self, "setupScriptingZonesInternal")
-end
-
-function getSlotPosition()
-        local X_OFFSET = 0
-        local Z_OFFSET = 0.135
-        local object_scale = self.getScale()
-        local expected_scale = {0.18, 0.18, 0.18}
-        local base_scale = {2.46, 2, 3.38}
-        local scale_factor = {object_scale[1] / expected_scale[1], object_scale[2] / expected_scale[2], object_scale[3] / expected_scale[3]}
-        local target_scale = {scale_factor[1] * base_scale[1], scale_factor[2] * base_scale[2], scale_factor[3] * base_scale[3]}
-    
-        local base_pos = self.getPosition()
-    
-        local local_x_offset = (X_OFFSET * scale_factor[1]) * math.cos(math.rad(self.getRotation()[2])) + (Z_OFFSET * scale_factor[3]) * math.sin(math.rad(self.getRotation()[2]))
-        local local_z_offset = (Z_OFFSET * scale_factor[3]) * math.cos(math.rad(self.getRotation()[2])) - (X_OFFSET * scale_factor[1]) * math.sin(math.rad(self.getRotation()[2]))
-        local pos = {base_pos.x + local_x_offset, base_pos.y, base_pos.z + local_z_offset}
-        return pos
-end
-
-function createScriptingZone(position, rot, scale)
-    local zone = spawnObject({type='ScriptingTrigger', position=position, rotation=rot, scale=scale})
-    repeat
-        coroutine.yield(0)
-    until zone.getGUID() ~= nil
-    return zone
-end
-
--- Takes a list of objects and returns the one on top. Optional if you require that the object is face up
-function getObjectGUIDOnTop(objList, requireFaceup)
-    local topObj = nil
-    for _, obj in ipairs(objList) do
-        if topObj == nil or obj.getPosition().y > topObj.getPosition().y then
-            if not requireFaceup or (obj.getRotation().z > 135 or obj.getRotation().z < -135) then
-            topObj = obj
-            end
-        end
-    end
-
-    if topObj.name == "Deck" or topObj.name == "DeckCustom" then
-        if topObj.getRotation().z > 135 or topObj.getRotation().z < -135 then
-            return topObj.getObjects()[1].guid
-        else
-            return topObj.getObjects()[#topObj.getObjects()].guid
-        end
-    end
-
-    return topObj.getGUID()
 end
