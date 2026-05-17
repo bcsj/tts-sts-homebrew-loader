@@ -1,9 +1,11 @@
+require("tts-sts-homebrew-loader/src/detect-mod-version")
 require("tts-sts-homebrew-loader/src/sts-mod-loans")
 require("tts-sts-homebrew-loader/src/clean-up-characters")
 require("tts-sts-homebrew-loader/src/util")
 
 -- custom_char_SETUP_BOARD --
 function onLoad()
+    log("v4")
     createButtons()
 end
 
