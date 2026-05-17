@@ -38,6 +38,53 @@ function getWatcherObjects(board)
     return all_guids
 end
 
+function getGuardianObjects(board)
+    local align_cube_guid = board.getVar("ALIGNMENT_CUBE_GUID")
+    local vigor_guids = board.getVar("VIGOR_GUIDS")
+
+    --local gemify_tool_guid = Global.getVar("GEMIFY_TOOL")
+    -- The gemify tool is a clone of the original, so it has a random id
+    -- No immediate good way to get it
+    -- The best idea so far is to create a temp zone around the position
+    -- of it, which we should be able to compute like how the setup in the
+    -- board code does it, then get all objects in that zone whioch should
+    -- just be the gemify tool, and get its guid 
+
+    local decks = board.getTable("DECK_GUIDS")
+    local gem_deck_guid = decks["Gem"]
+
+    -- We should also remove the "Gem Deck" text somehow
+
+    local all_guids = {
+        align_cube_guid, 
+        --gemify_tool_guid, 
+        gem_deck_guid
+    }
+    concatTables(all_guids, vigor_guids)
+
+    return all_guids
+end
+
+function getHexaghostObjects(board)
+    local soulburn_guid = board.getVar("SOULBURN_GUIDS")
+    local wheel_cube_guid = board.getVar("WHEEL_CUBE_GUID")
+
+    local all_guids = {wheel_cube_guid}
+    concatTables(all_guids, soulburn_guid)
+
+    return all_guids
+end
+
+
+function getSlimeBossObjects(board)
+    local bruiser_slime_guid = "7a5ae2"
+    -- BRUISER_SLIME_GUID -- seems they don't use this variable
+
+    local all_guids = {bruiser_slime_guid}
+
+    return all_guids
+end
+
 function putAway(bag, guids)
     for i = 1, #guids do
         bag.putObject(getObjectFromGUID(guids[i]))
@@ -49,15 +96,37 @@ function cleanUpCharacter(color)
     local board = getGameObject(color, "Board")
     local bag = getGameObject(color, "Bag")
 
-    if character == "Silent" then
-        putAway(bag, getSilentObjects(board))
+    if isCoreGameMod() then
+        if character == "Silent" then
+            putAway(bag, getSilentObjects(board))
+        end
+
+        if character == "Defect" then
+            putAway(bag, getDefectObjects(board))
+        end
+
+        if character == "Watcher" then
+            putAway(bag, getWatcherObjects(board))
+        end
     end
 
-     if character == "Defect" then
-        putAway(bag, getDefectObjects(board))
-    end
+    -- The character boards have just been skinned over and
+    -- have the original game character's names, so we need
+    -- to check the mod version to know how to treat each.
+    if isDownfallGameMod() then
+        -- Guardian
+        if character == "Silent" then
+            putAway(bag, getGuardianObjects(board))
+        end
 
-     if character == "Watcher" then
-        putAway(bag, getWatcherObjects(board))
+        -- Hexaghost
+        if character == "Defect" then
+            putAway(bag, getHexaghostObjects(board))
+        end
+
+        -- Slime Boss
+        if character == "Watcher" then
+            putAway(bag, getSlimeBossObjects(board))
+        end
     end
 end
