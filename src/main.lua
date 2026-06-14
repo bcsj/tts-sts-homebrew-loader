@@ -5,7 +5,6 @@ require("tts-sts-homebrew-loader/src/util")
 
 -- custom_char_SETUP_BOARD --
 function onLoad()
-    log("v4")
     createButtons()
 end
 
